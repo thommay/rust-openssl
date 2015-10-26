@@ -159,14 +159,6 @@ pub const SSL_TLSEXT_ERR_ALERT_WARNING: c_int = 1;
 pub const SSL_TLSEXT_ERR_ALERT_FATAL: c_int = 2;
 pub const SSL_TLSEXT_ERR_NOACK: c_int = 3;
 
-macro_rules! import_options {
-    ( $( $name:ident $val:expr  )* ) => {
-       $( pub const $name: u64 = $val; )*
-    };
-}
-
-include!("ssl_options.rs");
-
 #[cfg(any(feature = "npn", feature = "alpn"))]
 pub const OPENSSL_NPN_UNSUPPORTED: c_int = 0;
 #[cfg(any(feature = "npn", feature = "alpn"))]
@@ -270,29 +262,26 @@ pub fn init() {
             GUARDS = mem::transmute(guards);
 
             CRYPTO_set_locking_callback(locking_function);
-            rust_openssl_set_id_callback();
+            set_id_callback();
         }
     })
 }
 
-pub unsafe fn SSL_CTX_set_options(ssl: *mut SSL_CTX, op: u64) -> u64 {
-    rust_openssl_ssl_ctx_options_c_to_rust(SSL_CTX_set_options_shim(ssl, rust_openssl_ssl_ctx_options_rust_to_c(op)))
+#[cfg(unix)]
+fn set_id_callback() {
+    extern {
+        fn rust_openssl_thread_id() -> c_ulong;
+    }
+
+    unsafe {
+        CRYPTO_set_id_callback(rust_openssl_thread_id);
+    }
 }
 
-pub unsafe fn SSL_CTX_get_options(ssl: *mut SSL_CTX) -> u64 {
-    rust_openssl_ssl_ctx_options_c_to_rust(SSL_CTX_get_options_shim(ssl))
-}
+#[cfg(not(unix))]
+fn set_id_callback() {}
 
-pub unsafe fn SSL_CTX_clear_options(ssl: *mut SSL_CTX, op: u64) -> u64 {
-    rust_openssl_ssl_ctx_options_c_to_rust(SSL_CTX_clear_options_shim(ssl, rust_openssl_ssl_ctx_options_rust_to_c(op)))
-}
-
-// True functions
 extern "C" {
-    fn rust_openssl_ssl_ctx_options_rust_to_c(rustval: u64) -> c_long;
-    fn rust_openssl_ssl_ctx_options_c_to_rust(cval: c_long) -> u64;
-    fn rust_openssl_set_id_callback();
-
     pub fn ASN1_INTEGER_set(dest: *mut ASN1_INTEGER, value: c_long) -> c_int;
     pub fn ASN1_STRING_type_new(ty: c_int) -> *mut ASN1_STRING;
     pub fn ASN1_TIME_free(tm: *mut ASN1_TIME);
@@ -379,6 +368,7 @@ extern "C" {
                                                            n: c_int,
                                                            file: *const c_char,
                                                            line: c_int));
+    pub fn CRYPTO_set_id_callback(func: unsafe extern fn() -> c_ulong);
     pub fn CRYPTO_free(buf: *mut c_void);
     pub fn CRYPTO_memcmp(a: *const c_void, b: *const c_void,
                          len: size_t) -> c_int;
@@ -466,24 +456,6 @@ extern "C" {
     pub fn HMAC_CTX_init(ctx: *mut HMAC_CTX);
     pub fn HMAC_CTX_cleanup(ctx: *mut HMAC_CTX);
     pub fn HMAC_CTX_copy(dst: *mut HMAC_CTX, src: *const HMAC_CTX) -> c_int;
-
-    // Pre-1.0 versions of these didn't return anything, so the shims bridge that gap
-    #[cfg_attr(not(target_os = "nacl"), link_name = "HMAC_Init_ex_shim")]
-    pub fn HMAC_Init_ex(ctx: *mut HMAC_CTX, key: *const u8, keylen: c_int, md: *const EVP_MD, imple: *const ENGINE) -> c_int;
-    #[cfg_attr(not(target_os = "nacl"), link_name = "HMAC_Final_shim")]
-    pub fn HMAC_Final(ctx: *mut HMAC_CTX, output: *mut u8, len: *mut c_uint) -> c_int;
-    #[cfg_attr(not(target_os = "nacl"), link_name = "HMAC_Update_shim")]
-    pub fn HMAC_Update(ctx: *mut HMAC_CTX, input: *const u8, len: c_uint) -> c_int;
-
-    /// Deprecated - use the non "_shim" version
-    #[cfg_attr(target_os = "nacl", link_name = "HMAC_Init_ex")]
-    pub fn HMAC_Init_ex_shim(ctx: *mut HMAC_CTX, key: *const u8, keylen: c_int, md: *const EVP_MD, imple: *const ENGINE) -> c_int;
-    /// Deprecated - use the non "_shim" version
-    #[cfg_attr(target_os = "nacl", link_name = "HMAC_Final")]
-    pub fn HMAC_Final_shim(ctx: *mut HMAC_CTX, output: *mut u8, len: *mut c_uint) -> c_int;
-    /// Deprecated - use the non "_shim" version
-    #[cfg_attr(target_os = "nacl", link_name = "HMAC_Update")]
-    pub fn HMAC_Update_shim(ctx: *mut HMAC_CTX, input: *const u8, len: c_uint) -> c_int;
 
     pub fn PEM_read_bio_DHparams(bio: *mut BIO, out: *mut *mut DH, callback: Option<PasswordCallback>,
                              user_data: *mut c_void) -> *mut DH;
@@ -675,29 +647,6 @@ extern "C" {
     pub fn i2d_RSAPrivateKey(k: *mut RSA, buf: *const *mut u8) -> c_int;
     pub fn d2i_RSAPrivateKey(k: *const *mut RSA, buf: *const *const u8, len: c_uint) -> *mut RSA;
 
-    // These functions are defined in OpenSSL as macros, so we shim them
-    #[link_name = "BIO_eof_shim"]
-    pub fn BIO_eof(b: *mut BIO) -> c_int;
-    #[link_name = "BIO_set_nbio_shim"]
-    pub fn BIO_set_nbio(b: *mut BIO, enabled: c_long) -> c_long;
-    #[link_name = "BIO_set_mem_eof_return_shim"]
-    pub fn BIO_set_mem_eof_return(b: *mut BIO, v: c_int);
-    pub fn SSL_CTX_set_options_shim(ctx: *mut SSL_CTX, options: c_long) -> c_long;
-    pub fn SSL_CTX_get_options_shim(ctx: *mut SSL_CTX) -> c_long;
-    pub fn SSL_CTX_clear_options_shim(ctx: *mut SSL_CTX, options: c_long) -> c_long;
-    #[link_name = "SSL_CTX_add_extra_chain_cert_shim"]
-    pub fn SSL_CTX_add_extra_chain_cert(ctx: *mut SSL_CTX, x509: *mut X509) -> c_long;
-    #[link_name = "SSL_CTX_set_read_ahead_shim"]
-    pub fn SSL_CTX_set_read_ahead(ctx: *mut SSL_CTX, m: c_long) -> c_long;
-    #[cfg(feature = "ecdh_auto")]
-    #[link_name = "SSL_CTX_set_ecdh_auto_shim"]
-    pub fn SSL_CTX_set_ecdh_auto(ssl: *mut SSL_CTX, onoff: c_int) -> c_int;
-    #[link_name = "SSL_set_tlsext_host_name_shim"]
-    pub fn SSL_set_tlsext_host_name(s: *mut SSL, name: *const c_char) -> c_long;
-    #[link_name = "SSL_CTX_set_tmp_dh_shim"]
-    pub fn SSL_CTX_set_tmp_dh(s: *mut SSL, dh: *const DH) -> c_long;
-    #[link_name = "X509_get_extensions_shim"]
-    pub fn X509_get_extensions(x: *mut X509) -> *mut stack_st_X509_EXTENSION;
 }
 
 pub mod probe;
