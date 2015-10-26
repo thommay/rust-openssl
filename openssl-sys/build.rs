@@ -21,12 +21,8 @@ fn main() {
         // rustc doesn't seem to work with pkg-config's output in mingw64
         if !target.contains("windows") {
             if let Ok(info) = pkg_config::find_library("openssl") {
-                let paths = info.include_paths
-                    .iter()
-                    .map(|p| p.to_str().unwrap())
-                    .collect::<Vec<_>>()
-                    .join(":");
-                println!("cargo:include={}", paths);
+                let paths = env::join_paths(info.include_paths).unwrap();
+                println!("cargo:include={}", paths.to_str().unwrap());
                 return;
             }
         }

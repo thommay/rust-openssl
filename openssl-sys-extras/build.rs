@@ -11,7 +11,7 @@ fn main() {
     let mut config = gcc::Config::new();
 
     if let Some(paths) = option_env!("DEP_OPENSSL_INCLUDE") {
-        for path in paths.split(":") {
+        for path in env::split_paths(paths) {
             config.include(PathBuf::from(path));
         }
     }
