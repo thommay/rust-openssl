@@ -10,8 +10,8 @@ fn main() {
     let options_shim_file = generate_options_shim();
     let mut config = gcc::Config::new();
 
-    if let Some(paths) = option_env!("DEP_OPENSSL_INCLUDE") {
-        for path in env::split_paths(paths) {
+    if let Some(paths) = env::var("DEP_OPENSSL_INCLUDE").ok() {
+        for path in env::split_paths(&paths) {
             config.include(PathBuf::from(path));
         }
     }
