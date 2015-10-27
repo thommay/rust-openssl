@@ -1,15 +1,10 @@
 extern crate pkg_config;
-extern crate gcc;
 
 use std::env;
 use std::path::PathBuf;
 
 fn main() {
     let target = env::var("TARGET").unwrap();
-
-    if cfg!(unix) {
-        gcc::Config::new().file("src/thread_id.c").compile("libthread_id.a");
-    }
 
     // libressl_pnacl_sys links the libs needed.
     if target.ends_with("nacl") { return; }
