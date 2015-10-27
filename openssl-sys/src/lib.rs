@@ -7,7 +7,7 @@ extern crate libc;
 #[cfg(target_os = "nacl")]
 extern crate libressl_pnacl_sys;
 
-use libc::{c_void, c_int, c_char, c_ulong, c_long, c_uint, c_uchar, size_t, pthread_t};
+use libc::{c_void, c_int, c_char, c_ulong, c_long, c_uint, c_uchar, size_t};
 use std::mem;
 use std::sync::{Mutex, MutexGuard};
 use std::sync::{Once, ONCE_INIT};
@@ -270,7 +270,7 @@ pub fn init() {
 #[cfg(unix)]
 fn set_id_callback() {
     extern {
-        fn pthread_self() -> pthread_t;
+        fn pthread_self() -> libc::pthread_t;
     }
 
     unsafe extern fn thread_id() -> c_ulong {
