@@ -455,7 +455,7 @@ fn test_write_direct() {
 run_test!(get_peer_certificate, |method, stream| {
     let stream = SslStream::connect_generic(&SslContext::new(method).unwrap(),
                                             stream).unwrap();
-    let cert = stream.get_peer_certificate().unwrap();
+    let cert = stream.ssl().peer_certificate().unwrap();
     let fingerprint = cert.fingerprint(SHA256).unwrap();
     let node_hash_str = "db400bb62f1b1f29c3b8f323b8f7d9dea724fdcd67104ef549c772ae3749655b";
     let node_id = node_hash_str.from_hex().unwrap();
@@ -504,14 +504,14 @@ fn test_pending() {
     let mut buf = [0u8; 16*1024];
     stream.read(&mut buf[..1]).unwrap();
 
-    let pending = stream.pending();
+    let pending = stream.ssl().pending();
     let len = stream.read(&mut buf[1..]).unwrap();
 
     assert_eq!(pending, len);
 
     stream.read(&mut buf[..1]).unwrap();
 
-    let pending = stream.pending();
+    let pending = stream.ssl().pending();
     let len = stream.read(&mut buf[1..]).unwrap();
     assert_eq!(pending, len);
 }
@@ -520,8 +520,8 @@ fn test_pending() {
 fn test_state() {
     let (_s, tcp) = Server::new();
     let stream = SslStream::connect_generic(&SslContext::new(Sslv23).unwrap(), tcp).unwrap();
-    assert_eq!(stream.get_state_string(), "SSLOK ");
-    assert_eq!(stream.get_state_string_long(), "SSL negotiation finished successfully");
+    assert_eq!(stream.ssl().state_string(), "SSLOK ");
+    assert_eq!(stream.ssl().state_string_long(), "SSL negotiation finished successfully");
 }
 
 /// Tests that connecting with the client using ALPN, but the server not does not
