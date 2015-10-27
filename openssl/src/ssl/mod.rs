@@ -705,7 +705,7 @@ unsafe impl Sync for Ssl {}
 impl fmt::Debug for Ssl {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Ssl")
-            .field("state", &self.get_state_string_long())
+            .field("state", &self.state_string_long())
             .finish()
     }
 }
